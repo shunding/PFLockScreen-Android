@@ -4,10 +4,13 @@
     android:shape="oval">
 
     <stroke
-        android:color="@color/code_lock_screen_pf"
+        android:color="#C6CCDF"
         android:width="1px"/>
 
+    <solid
+        android:color="#C6CCDF"/>
+
     <size
-        android:width="@dimen/code_fp_size"
-        android:height="@dimen/code_fp_size"/>
+        android:width="12dp"
+        android:height="12dp"/>
 </shape>
