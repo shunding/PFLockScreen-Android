@@ -49,9 +49,12 @@ public class PFLockScreenFragment extends Fragment {
     private boolean mFingerprintHardwareDetected = false;
     private boolean mIsCreateMode = false;
 
+    private int mCodeCreationAttempts = 0;
+
     private OnPFLockScreenCodeCreateListener mCodeCreateListener;
     private OnPFLockScreenLoginListener mLoginListener;
     private String mCode = "";
+    private String mFirstCode = "";
     private String mEncodedPinCode = "";
 
     private PFFLockScreenConfiguration mConfiguration;
@@ -280,9 +283,54 @@ public class PFLockScreenFragment extends Fragment {
         @Override
         public void onCodeCompleted(String code) {
             if (mIsCreateMode) {
-                mNextButton.setVisibility(View.VISIBLE);
-                mCode = code;
-                return;
+                if (++mCodeCreationAttempts < 2) {
+                    final TextView titleView = mRootView.findViewById(R.id.title_text_view);
+                    titleView.setText("Повторите ввод");
+                    mFirstCode = code;
+                    mCode = "";
+                    mCodeView.clearCode();
+                    return;
+                } else if(!mFirstCode.isEmpty() && !code.isEmpty() && mFirstCode.equals(code)) {
+                    mFirstCode = code;
+                    mCode = code;
+                    mPFPinCodeViewModel.encodePin(getContext(), mCode).observe(
+                            PFLockScreenFragment.this,
+                            new Observer<PFResult<String>>() {
+                                @Override
+                                public void onChanged(@Nullable PFResult<String> result) {
+                                    if (result == null) {
+                                        return;
+                                    }
+                                    if (result.getError() != null) {
+                                        Log.d(TAG, "Can not encode pin code");
+                                        deleteEncodeKey();
+                                        return;
+                                    }
+                                    final String encodedCode = result.getResult();
+                                    if (mCodeCreateListener != null) {
+                                        mCodeCreateListener.onCodeCreated(encodedCode);
+                                    }
+                                }
+                            }
+                    );
+                } else if (!mFirstCode.isEmpty() && !code.isEmpty() && !mFirstCode.equals(code)) {
+                    new AlertDialog.Builder(getContext())
+                            .setTitle("Неверный код")
+                            .setMessage("Введенные коды не совпадают, пожалуйста повторите ввод.")
+                            .setCancelable(false)
+                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    mCodeView.clearCode();
+                                    mFirstCode = "";
+                                    mCode = "";
+                                    mCodeCreationAttempts = 0;
+                                    final TextView titleView = mRootView.findViewById(R.id.title_text_view);
+                                    titleView.setText("Введите код");
+                                }
+                            }).create().show();
+                    return;
+                }
             }
             mCode = code;
             mPFPinCodeViewModel.checkPin(getContext(), mEncodedPinCode, mCode).observe(
